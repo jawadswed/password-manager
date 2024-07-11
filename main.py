@@ -1,6 +1,7 @@
 from tkinter import *
 from tkinter import messagebox
 import random
+import json
 import pyperclip
 
 
@@ -41,11 +42,50 @@ def generate_password():
     pyperclip.copy(password)  # method to copy to the clipboard
 
 
+def find_password():
+    website = website_entry.get()
+
+    if len(website) == 0:
+        empty_fields = messagebox.askretrycancel(title="Error",
+                                                 message="The website entry is empty.\n"
+                                                         "Please input a website to search for its password.\n"
+                                                         "Please Retry or Cancel")
+        if empty_fields:
+            return
+        else:
+            website_entry.delete(0, END)
+            return
+    try:
+        with open("password-manager.json", "r") as file:
+            data = json.load(file)
+    except FileNotFoundError:
+        messagebox.showwarning(title="No password", message="There is no passwords saved")
+    else:
+        try:
+            password = data[website]["password"]
+            email = data[website]["email"]
+        except KeyError:
+            messagebox.showwarning(title="No Password", message="The website you entered has no password or email.\n"
+                                                                "Try another website")
+        else:
+            messagebox.showinfo(title="Your website information", message=f"Website: {website}\n"
+                                                                          f"Email: {email}\n"
+                                                                          f"Password: {password}")
+            pyperclip.copy(password)
+        finally:
+            website_entry.delete(0, END)
+
+
 # ---------------------------- SAVE PASSWORD ------------------------------- #
 def save():
     website = website_entry.get()
     email = email_username_entry.get()
     password = password_entry.get()
+
+    new_data = {website: {
+        "email": email,
+        "password": password
+    }}
 
     if len(website) == 0 or len(password) == 0:
         empty_fields = messagebox.askretrycancel(title="Error",
@@ -62,10 +102,24 @@ def save():
                                         message=f"These are the details entered. \nEmail: {email} \nPassword: {password} \n"
                                                 f"are you sure you want to save them? ")
     if ok_to_save:
-        with open("password-manager.txt", 'a') as file:
-            file.write(f"{website} | {email} | {password}\n")
+        try:
+            with open("password-manager.json", "r") as file:
+                # reading the data
+                data = json.load(file)
+                # update the data
+                data.update(new_data)
+        except FileNotFoundError:
+            with open("password-manager.json", "w") as file:
+                # write the data to json file
+                json.dump(new_data, file, indent=4)  # indent is to make the json file more readable
+        else:
+            # update the data
+            data.update(new_data)
+            with open("password-manager.json", "w") as file:
+                # write the data to json file
+                json.dump(data, file, indent=4)  # indent is to make the json file more readable
+        finally:
             website_entry.delete(0, END)
-            email_username_entry.delete(0, END)
             password_entry.delete(0, END)
 
 
@@ -84,9 +138,12 @@ canvas.grid(column=1, row=0)
 website_label = Label(text="Website:")
 website_label.grid(column=0, row=1)
 
-website_entry = Entry()
-website_entry.grid(column=1, row=1, columnspan=2, sticky=EW)
+website_entry = Entry(width=33)
+website_entry.grid(column=1, row=1, sticky=EW)
 website_entry.focus()
+
+search_button = Button(text="Search", command=find_password, fg="yellow", bg="green")
+search_button.grid(column=2, row=1, sticky=EW)
 
 email_username_Label = Label(text="Email/Username:")
 email_username_Label.grid(column=0, row=2)
